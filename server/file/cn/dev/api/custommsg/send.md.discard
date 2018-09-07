@@ -1,0 +1,133 @@
+### 被动回复用户消息
+
+开发者收到用户消息或事件的数据包时，可以在响应包中返回特定的数据结构（JSON或XML）来对该消息进行响应。 严格来说，发送被动响应消息其实并不是一种接口，而是对微信服务器发过来消息的一次回复。现支持回复文本和图片消息。
+
+微信服务器在将用户的消息发给小程序的开发者服务器地址（开发设置处配置）后，微信服务器在五秒内收不到响应会断掉连接，并且重新发起请求，总共重试三次，如果在调试中，发现用户无法收到响应的消息，可以检查是否消息处理超时。关于重试的消息排重，有msgid的消息推荐使用msgid排重。事件类型消息推荐使用FromUserName + CreateTime 排重。
+
+如果开发者希望增强安全性，可以在开发者中心处开启消息加密，这样，用户发给小程序的消息以及小程序被动回复用户消息都会继续加密（但），详见被动回复[消息加解密说明](https://open.weixin.qq.com/cgi-bin/showdocument?action=dir_list&t=resource/res_list&verify=1&id=open1419318479&token=&lang=zh_CN)。
+
+假如服务器无法保证在五秒内处理并回复，必须做出下述回复，这样微信服务器才不会对此作任何处理，并且不会发起重试，（这种情况下，可以使用[发送客服消息](#发送客服消息)接口进行异步回复。），否则，将出现严重的错误提示。详见下面说明：
+
+
+```
+1、直接回复success（推荐方式）
+2、直接回复空串（指字节长度为0的空字符串，而不是结构体中content字段的内容为空）
+
+```
+
+一旦遇到以下情况，微信都会在小程序会话中，向用户下发系统提示“该小程序客服暂时无法提供服务，请稍后再试”：
+
+```
+1、开发者在5秒内未回复任何内容
+2、开发者回复了异常数据
+```
+
+另外请注意，回复图片（不支持gif动图）消息时需要预先通过[临时素材接口](#临时素材接口)上传图片微信服务器。
+
+各消息类型需要的XML数据包结构如下：
+
+
+#### 回复文本消息
+##### XML 格式
+
+```xml
+<xml>
+  <ToUserName><![CDATA[toUser]]></ToUserName>
+  <FromUserName><![CDATA[fromUser]]></FromUserName>
+  <CreateTime>12345678</CreateTime>
+  <MsgType><![CDATA[text]]></MsgType>
+  <Content><![CDATA[你好]]></Content>
+</xml>
+```
+
+##### JSON 格式
+
+```json
+{}
+```
+
+##### 参数说明
+
+| 参数        | 说明                  |
+| :---------  | --------------------- |
+| ToUserName  | 接收者的openID    |
+| FromUserName| 小程序的原始ID    |
+| CreateTime  | 消息创建时间(整型）  |
+| MsgType     | text      |
+| Content     |回复的消息内容（换行：在content中能够换行，微信客户端就支持换行显示）       |
+
+#### 回复图片消息
+
+##### XML 格式
+
+```xml
+<xml>
+  <ToUserName><![CDATA[toUser]]></ToUserName>
+  <FromUserName><![CDATA[fromUser]]></FromUserName>
+  <CreateTime>12345678</CreateTime>
+  <MsgType><![CDATA[image]]></MsgType>
+  <Image>
+  <MediaId><![CDATA[media_id]]></MediaId>
+  </Image>
+</xml>
+```
+
+##### JSON 格式
+
+```json
+{}
+```
+
+##### 参数说明
+
+| 参数        | 是否必须 |　说明                  |
+| :---------  | ------|--------------------- |
+| ToUserName  | 是 | 接收者的openID    |
+| FromUserName| 是| 小程序的原始ID     |
+| CreateTime  | 是|消息创建时间(整型）  |
+| MsgType     | 是| image    |
+| MediaId | 是  | 通过[新增素材接口](#新增素材接口)上传图片文件，得到的id。 |
+
+
+
+#### 转发消息到客服工具
+
+如果开发者希望消息被转发到客服工具处理，请按照下述结构返回响应包。响应包的数据格式（XML或JSON）需要与设置的接收消息数据格式一致。
+
+##### XML 格式
+
+```xml
+<xml>
+	<ToUserName><![CDATA[toUser]]></ToUserName>
+	<FromUserName><![CDATA[fromUser]]></FromUserName>
+	<CreateTime>1482048670</CreateTime>
+	<MsgType><![CDATA[transfer_customer_service]]></MsgType>
+</xml>
+
+```
+
+
+###### JSON 格式
+
+```json
+{
+	"ToUserName": "toUser",
+	"FromUserName": "fromUser",
+	"CreateTime": 1482048670,
+	"MsgType": "transfer_customer_service",
+}
+
+```
+##### 参数说明
+ 
+| 参数        | 说明                  |
+| :---------  | --------------------- |
+| ToUserName  |  发送者的openid    |
+| FromUserName| 小程序原始ID       |
+| CreateTime  | 事件创建时间(整型）  |
+| MsgType     | transfer_customer_service |
+
+
+
+如果开发者希望把消息或事件转发到客服工具，请参看[转发消息到客服工具](#转发消息到客服工具)。客服工具接入请参考[客服工具使用说明](https://mp.weixin.qq.com/debug/wxadoc/introduction/custom.html#客服工具使用说明)
+
